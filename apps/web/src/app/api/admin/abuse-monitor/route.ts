@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@zyphon/db';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 // Helper to get admin user
 async function getAdminUser() {
   const cookieStore = await cookies();

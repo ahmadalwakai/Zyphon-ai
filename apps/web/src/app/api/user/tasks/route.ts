@@ -3,6 +3,8 @@ import { prisma } from '@zyphon/db';
 import { getAuthUser } from '@/lib/auth';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || './workspaces';
 
 export async function GET(request: NextRequest) {

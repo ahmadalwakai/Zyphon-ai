@@ -5,6 +5,8 @@ import { readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 // MIME type mapping
 const mimeTypes: Record<string, string> = {
   '.png': 'image/png',

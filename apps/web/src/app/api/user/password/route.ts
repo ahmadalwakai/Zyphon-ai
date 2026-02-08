@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@zyphon/db';
 import { getAuthUser } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthUser();

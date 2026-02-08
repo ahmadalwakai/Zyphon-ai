@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@zyphon/db';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { name, email, password } = await request.json();

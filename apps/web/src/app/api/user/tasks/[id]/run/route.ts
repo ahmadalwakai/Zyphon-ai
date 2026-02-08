@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@zyphon/db';
 import { getAuthUser } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 // Import orchestrator for direct execution (or queue via Redis)
 // For now, we'll use direct execution for simplicity
 // In production, this should go through a job queue
