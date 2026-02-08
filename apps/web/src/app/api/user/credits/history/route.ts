@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@zyphon/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser } from '../../../../../lib/auth';
 
 export async function GET(request: NextRequest) {
   try {

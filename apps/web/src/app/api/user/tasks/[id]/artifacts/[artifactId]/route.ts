@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@zyphon/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser } from '../../../../../../../lib/auth';
 import { readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
