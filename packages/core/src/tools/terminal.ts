@@ -29,7 +29,7 @@ export class TerminalTool {
   private timeout: number;
 
   constructor(
-    workspaceRoot: string = process.env['WORKSPACE_ROOT'] || './workspaces',
+    workspaceRoot: string = process.env['WORKSPACE_ROOT'] || (process.env['VERCEL'] ? '/tmp/workspaces' : './workspaces'),
     timeout: number = TERMINAL_TIMEOUT_MS
   ) {
     this.workspaceRoot = workspaceRoot;

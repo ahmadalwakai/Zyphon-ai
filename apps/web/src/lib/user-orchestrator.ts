@@ -4,7 +4,7 @@ import { existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { prisma } from '@zyphon/db';
 
-const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || './workspaces';
+const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || (process.env.VERCEL ? '/tmp/workspaces' : './workspaces');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'deepseek-coder-v2:16b';
 const SD3_SCRIPT_PATH = process.env.SD3_SCRIPT_PATH || '';

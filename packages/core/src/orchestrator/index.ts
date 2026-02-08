@@ -30,7 +30,7 @@ interface OrchestratorConfig {
 }
 
 const DEFAULT_CONFIG: OrchestratorConfig = {
-  workspaceRoot: process.env['WORKSPACE_ROOT'] || './workspaces',
+  workspaceRoot: process.env['WORKSPACE_ROOT'] || (process.env['VERCEL'] ? '/tmp/workspaces' : './workspaces'),
   maxRetries: 1,
   timeout: TASK_TIMEOUT_MS,
 };
