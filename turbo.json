@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": ["DATABASE_URL", "NODE_ENV"]
+      "env": ["DATABASE_URL", "NODE_ENV", "REDIS_URL", "OLLAMA_URL", "SD3_MODEL_PATH", "API_URL"]
     },
     "lint": {
       "dependsOn": ["^build"]
