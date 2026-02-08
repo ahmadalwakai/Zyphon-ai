@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src/",
-    "postinstall": "npx playwright install chromium --with-deps || true"
+    "postinstall": "npx playwright install chromium || true"
   },
   "dependencies": {
     "@zyphon/core": "workspace:*",
