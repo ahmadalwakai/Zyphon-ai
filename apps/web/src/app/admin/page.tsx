@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sidebar } from '@/components/Sidebar';
-import { Dashboard } from '@/components/Dashboard';
-import { Organizations } from '@/components/Organizations';
-import { Projects } from '@/components/Projects';
-import { ApiKeys } from '@/components/ApiKeys';
-import { Tasks } from '@/components/Tasks';
-import { AuditLogs } from '@/components/AuditLogs';
+import { Sidebar } from '../../components/Sidebar';
+import { Dashboard } from '../../components/Dashboard';
+import { Organizations } from '../../components/Organizations';
+import { Projects } from '../../components/Projects';
+import { ApiKeys } from '../../components/ApiKeys';
+import { Tasks } from '../../components/Tasks';
+import { AuditLogs } from '../../components/AuditLogs';
 
 type View = 'dashboard' | 'organizations' | 'projects' | 'api-keys' | 'tasks' | 'audit';
 
