@@ -1,0 +1,25 @@
+{
+  "name": "zyphon-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "turbo run db:generate --filter=@zyphon/db",
+    "db:push": "turbo run db:push --filter=@zyphon/db",
+    "docker:up": "docker-compose -f infra/docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f infra/docker/docker-compose.yml down",
+    "playwright:install": "cd apps/worker && pnpm exec playwright install chromium --with-deps",
+    "playwright:check": "cd apps/worker && pnpm exec playwright doctor || echo Playwright browsers not installed. Run: pnpm run playwright:install",
+    "test:smoke": "node scripts/smoke-test.mjs"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

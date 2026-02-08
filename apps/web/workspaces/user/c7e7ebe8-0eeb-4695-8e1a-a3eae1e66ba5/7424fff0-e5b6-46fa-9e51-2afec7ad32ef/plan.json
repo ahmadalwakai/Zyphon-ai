@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "index": 0,
+      "name": "Identify the pattern",
+      "description": "Determine the sequence or pattern in the given numbers.",
+      "tool": "LLM",
+      "input": {
+        "prompt": "What is the next number in this sequence: 1, 2, 3, 4, ...?"
+      },
+      "dependsOn": []
+    }
+  ]
+}

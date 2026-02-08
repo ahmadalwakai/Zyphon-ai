@@ -1,0 +1,161 @@
+{
+  "taskId": "d6afacf5-2deb-4fff-9fc2-4f32eac06782",
+  "goal": "\n      Create a smoke test verification:\n      1. Generate a simple test image (512x512) with prompt \"a green checkmark on white background\"\n      2. Navigate to http://localhost:3000 and take a screenshot to verify the web app is running\n      3. Run terminal command \"echo SMOKE_TEST_SUCCESS\" to verify terminal execution\n    ",
+  "expectedOutputs": [
+    "code",
+    "files",
+    "image",
+    "terminal",
+    "browser_check"
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "type": "IMAGE_GEN",
+      "tool": "IMAGE",
+      "input": {
+        "prompt": "a green checkmark on white background",
+        "width": 512,
+        "height": 512
+      },
+      "outputs": {
+        "artifacts": [
+          "green_checkmark.png"
+        ],
+        "notes": "Image of a green checkmark on a white background"
+      },
+      "acceptance": [
+        "The image should display a clear and sharp green checkmark against a white background."
+      ],
+      "on_fail": {
+        "retry": 1
+      },
+      "dependsOn": []
+    },
+    {
+      "id": "s2",
+      "type": "CODE_GEN",
+      "tool": "LLM",
+      "input": {
+        "prompt": "echo SMOKE_TEST_SUCCESS",
+        "systemPrompt": "Generate a simple shell script that prints 'SMOKE_TEST_SUCCESS' to the terminal."
+      },
+      "outputs": {
+        "artifacts": [
+          "smoke_test.sh"
+        ],
+        "notes": "Shell script to verify smoke test success"
+      },
+      "acceptance": [
+        "The script should execute without errors and print 'SMOKE_TEST_SUCCESS'."
+      ],
+      "on_fail": {
+        "retry": 1
+      },
+      "dependsOn": []
+    },
+    {
+      "id": "s3",
+      "type": "FS_WRITE",
+      "tool": "FS",
+      "input": {
+        "operation": "write",
+        "path": "scripts/smoke_test.sh",
+        "content": "$step[s2].output"
+      },
+      "outputs": {
+        "artifacts": [
+          "scripts/smoke_test.sh"
+        ],
+        "notes": "Saved shell script for smoke test"
+      },
+      "acceptance": [
+        "The file should be created and contain the correct shell command."
+      ],
+      "on_fail": {
+        "retry": 1
+      },
+      "dependsOn": [
+        "s2"
+      ]
+    },
+    {
+      "id": "s4",
+      "type": "TERMINAL_RUN",
+      "tool": "TERMINAL",
+      "input": {
+        "command": "bash scripts/smoke_test.sh",
+        "cwd": "."
+      },
+      "outputs": {
+        "artifacts": [],
+        "notes": "Output from terminal command execution"
+      },
+      "acceptance": [
+        "The terminal should output 'SMOKE_TEST_SUCCESS' indicating the script ran successfully."
+      ],
+      "on_fail": {
+        "retry": 1
+      },
+      "dependsOn": [
+        "s3"
+      ]
+    },
+    {
+      "id": "s5",
+      "type": "BROWSER_CHECK",
+      "tool": "BROWSER",
+      "input": {
+        "url": "http://localhost:3000",
+        "action": "screenshot"
+      },
+      "outputs": {
+        "artifacts": [
+          "web_app_screenshot.png"
+        ],
+        "notes": "Screenshot of the web application to verify it's running."
+      },
+      "acceptance": [
+        "The screenshot should show the web app interface, confirming it is operational."
+      ],
+      "on_fail": {
+        "retry": 1
+      },
+      "dependsOn": []
+    },
+    {
+      "id": "s6",
+      "type": "VERIFY",
+      "tool": "NONE",
+      "input": {},
+      "outputs": {
+        "artifacts": [
+          "green_checkmark.png",
+          "scripts/smoke_test.sh",
+          "web_app_screenshot.png"
+        ],
+        "notes": "Confirmation of all expected outputs"
+      },
+      "acceptance": [
+        "All specified outputs should be present and correctly generated."
+      ],
+      "on_fail": {
+        "retry": 1
+      },
+      "dependsOn": [
+        "s1",
+        "s3",
+        "s5"
+      ]
+    }
+  ],
+  "constraints": {
+    "maxSteps": 12,
+    "maxSeconds": 600,
+    "maxCostCredits": 1000,
+    "allowWeb": false,
+    "allowTerminal": true,
+    "allowBrowser": true
+  },
+  "createdAt": "2026-02-07T19:37:08.076Z"
+}

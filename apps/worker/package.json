@@ -1,0 +1,30 @@
+{
+  "name": "@zyphon/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src/",
+    "postinstall": "npx playwright install chromium --with-deps || true"
+  },
+  "dependencies": {
+    "@zyphon/core": "workspace:*",
+    "@zyphon/db": "workspace:*",
+    "@zyphon/shared": "workspace:*",
+    "bullmq": "^5.1.0",
+    "dotenv": "^16.6.1",
+    "ioredis": "^5.3.2",
+    "pino": "^8.18.0",
+    "pino-pretty": "^10.3.1",
+    "playwright": "^1.41.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

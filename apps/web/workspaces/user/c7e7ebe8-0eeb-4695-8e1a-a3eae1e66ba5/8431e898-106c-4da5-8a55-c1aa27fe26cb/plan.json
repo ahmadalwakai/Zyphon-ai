@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "index": 0,
+      "name": "Generate Prompt for Image Generation",
+      "description": "Create a detailed prompt to guide the image generation process",
+      "tool": "LLM",
+      "input": {
+        "prompt": "Create an image of horses running in the Scottish Highlands in a cinematic style with a 16:9 aspect ratio."
+      },
+      "dependsOn": []
+    },
+    {
+      "index": 1,
+      "name": "Generate Image",
+      "description": "Use the generated prompt to create an image of horses running in the Scottish Highlands",
+      "tool": "IMAGE",
+      "input": {
+        "prompt": "Create an image of horses running in the Scottish Highlands in a cinematic style with a 16:9 aspect ratio."
+      },
+      "dependsOn": [
+        "Generate Prompt for Image Generation"
+      ]
+    }
+  ]
+}

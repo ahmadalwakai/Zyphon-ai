@@ -1,0 +1,398 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ORGANIZATION & USERS
+// ============================================
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  projects    Project[]
+  apiKeys     ApiKey[]
+  usageEvents UsageEvent[]
+  auditLogs   AuditLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  passwordHash String
+  name         String?
+  avatarUrl    String?
+  plan         UserPlan    @default(FREE)
+  credits      Int         @default(100)
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  memberships   Membership[]
+  auditLogs     AuditLog[]
+  workspaces    UserWorkspace[]
+  sessions      Session[]
+  creditHistory CreditHistory[]
+
+  @@map("users")
+}
+
+enum UserPlan {
+  FREE
+  PRO
+  UNLIMITED
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("sessions")
+}
+
+model CreditHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  amount    Int
+  balance   Int
+  reason    String
+  taskId    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("credit_history")
+}
+
+// ============================================
+// USER WORKSPACES (SaaS)
+// ============================================
+
+model UserWorkspace {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks UserTask[]
+
+  @@index([userId])
+  @@map("user_workspaces")
+}
+
+model UserTask {
+  id            String         @id @default(uuid())
+  workspaceId   String
+  goal          String
+  context       String?
+  type          TaskType       @default(CODING)
+  status        TaskStatus     @default(QUEUED)
+  workspacePath String
+  result        Json?
+  error         String?
+  creditsUsed   Int            @default(0)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  workspace UserWorkspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps     UserTaskStep[]
+  artifacts UserArtifact[]
+
+  @@index([workspaceId, status])
+  @@map("user_tasks")
+}
+
+model UserTaskStep {
+  id          String     @id @default(uuid())
+  taskId      String
+  index       Int
+  name        String
+  description String
+  tool        ToolType
+  input       Json
+  output      Json?
+  status      StepStatus @default(PENDING)
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+
+  task      UserTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  artifacts UserArtifact[]
+
+  @@index([taskId, index])
+  @@map("user_task_steps")
+}
+
+model UserArtifact {
+  id        String   @id @default(uuid())
+  taskId    String
+  stepId    String?
+  name      String
+  type      String
+  path      String
+  size      Int
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  task UserTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  step UserTaskStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  @@map("user_artifacts")
+}
+
+model Membership {
+  id        String   @id @default(uuid())
+  userId    String
+  orgId     String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@map("memberships")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  READONLY
+}
+
+// ============================================
+// PROJECTS & TASKS
+// ============================================
+
+model Project {
+  id          String    @id @default(uuid())
+  orgId       String
+  name        String
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@map("projects")
+}
+
+model Task {
+  id            String     @id @default(uuid())
+  projectId     String
+  goal          String
+  context       String?
+  type          TaskType   @default(CODING)
+  status        TaskStatus @default(QUEUED)
+  workspacePath String
+  result        Json?
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  steps     TaskStep[]
+  artifacts Artifact[]
+  usageEvents UsageEvent[]
+
+  @@index([projectId, status])
+  @@map("tasks")
+}
+
+enum TaskType {
+  CODING
+  IMAGE
+  MIXED
+}
+
+enum TaskStatus {
+  QUEUED
+  PLANNED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model TaskStep {
+  id          String     @id @default(uuid())
+  taskId      String
+  index       Int
+  name        String
+  description String
+  tool        ToolType
+  input       Json
+  output      Json?
+  status      StepStatus @default(PENDING)
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  artifacts Artifact[]
+
+  @@index([taskId, index])
+  @@map("task_steps")
+}
+
+enum ToolType {
+  LLM
+  IMAGE
+  FILE
+  SHELL
+}
+
+enum StepStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+// ============================================
+// WORKSPACES & ARTIFACTS
+// ============================================
+
+model Workspace {
+  id        String   @id @default(uuid())
+  taskId    String   @unique
+  path      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("workspaces")
+}
+
+model Artifact {
+  id        String   @id @default(uuid())
+  taskId    String
+  stepId    String?
+  name      String
+  type      String
+  path      String
+  size      Int
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  task Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  step TaskStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  @@map("artifacts")
+}
+
+// ============================================
+// API KEYS & SECURITY
+// ============================================
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  orgId     String
+  name      String
+  prefix    String
+  keyHash   String
+  last4     String
+  scopes    String[]
+  expiresAt DateTime?
+  revokedAt DateTime?
+  lastUsedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  usageEvents UsageEvent[]
+  auditLogs   AuditLog[]
+
+  @@index([prefix])
+  @@map("api_keys")
+}
+
+model ToolCredential {
+  id           String   @id @default(uuid())
+  orgId        String
+  toolName     String
+  encryptedKey String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([orgId, toolName])
+  @@map("tool_credentials")
+}
+
+// ============================================
+// USAGE & AUDIT
+// ============================================
+
+model UsageEvent {
+  id        String   @id @default(uuid())
+  orgId     String
+  apiKeyId  String?
+  taskId    String?
+  event     String
+  tokens    Int      @default(0)
+  cost      Float    @default(0)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  apiKey ApiKey?      @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  task   Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@map("usage_events")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  orgId      String
+  userId     String?
+  apiKeyId   String?
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  apiKey ApiKey?      @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([action, resource])
+  @@map("audit_logs")
+}

@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "index": 0,
+      "name": "Generate initial concept",
+      "description": "Use LLM to generate an initial prompt for the image generation tool based on the goal description.",
+      "tool": "LLM",
+      "input": {
+        "prompt": "Create a high-resolution cinematic image of two powerful horses running at full speed across the Scottish Highlands, with green hills and misty mountains in the background, dramatic lighting, ultra-realistic, sharp focus, natural motion blur, 16:9."
+      },
+      "dependsOn": []
+    }
+  ]
+}

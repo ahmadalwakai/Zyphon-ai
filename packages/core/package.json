@@ -1,0 +1,31 @@
+{
+  "name": "@zyphon/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "test:integration": "tsx src/__tests__/brain-integration.test.ts"
+  },
+  "dependencies": {
+    "@zyphon/db": "workspace:*",
+    "@zyphon/shared": "workspace:*",
+    "ioredis": "^5.3.2",
+    "pino": "^8.18.0",
+    "playwright": "^1.41.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

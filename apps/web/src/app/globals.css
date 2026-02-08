@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #020617;
+  --surface: #0F172A;
+  --surface-light: #1E293B;
+  --border: #334155;
+  --primary: #3B82F6;
+  --accent-glow: rgba(59, 130, 246, 0.5);
+}
+
+body {
+  background: var(--background);
+  color: white;
+}
+
+/* Neon card effect */
+.card-neon {
+  @apply bg-surface rounded-lg border border-border;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.card-neon:hover {
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3), 0 0 30px rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
