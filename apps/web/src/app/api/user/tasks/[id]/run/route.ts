@@ -110,7 +110,7 @@ export async function POST(
 async function runTaskInBackground(taskId: string, userId: string) {
   try {
     // Dynamic import to avoid server-side issues
-    const { UserTaskOrchestrator } = await import('@/lib/user-orchestrator');
+    const { UserTaskOrchestrator } = await import('../../../../../../lib/user-orchestrator');
     const orchestrator = new UserTaskOrchestrator();
     await orchestrator.runTask(taskId, userId);
   } catch (error) {
