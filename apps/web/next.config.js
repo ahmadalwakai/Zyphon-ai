@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // standalone output is needed for Vercel but requires symlink support (fails on Windows)
+  output: process.env.VERCEL || process.env.CI ? 'standalone' : undefined,
   reactStrictMode: true,
   transpilePackages: ['@zyphon/shared', '@zyphon/db'],
   experimental: {

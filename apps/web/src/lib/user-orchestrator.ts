@@ -11,6 +11,12 @@ const SD3_SCRIPT_PATH = process.env.SD3_SCRIPT_PATH || '';
 const SD3_MODEL_PATH = process.env.SD3_MODEL_PATH || '';
 const SD3_TIMEOUT_MS = 300000; // 5 minutes
 
+// Cloud LLM configuration (used on Vercel where Ollama isn't available)
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const USE_CLOUD_LLM = !!OPENAI_API_KEY;
+
 interface PlanStep {
   index: number;
   name: string;
@@ -36,6 +42,59 @@ export class UserTaskOrchestrator {
   private artifacts: ArtifactRecord[] = [];
 
   private async callLLM(prompt: string, systemPrompt?: string, jsonMode = false): Promise<any> {
+    if (USE_CLOUD_LLM) {
+      return this.callCloudLLM(prompt, systemPrompt, jsonMode);
+    }
+    return this.callOllamaLLM(prompt, systemPrompt, jsonMode);
+  }
+
+  private async callCloudLLM(prompt: string, systemPrompt?: string, jsonMode = false): Promise<any> {
+    const messages = [
+      { role: 'system' as const, content: systemPrompt || 'You are a helpful AI assistant.' },
+      { role: 'user' as const, content: prompt },
+    ];
+
+    const body: Record<string, any> = {
+      model: OPENAI_MODEL,
+      messages,
+      temperature: 0.1,
+      max_tokens: 4096,
+    };
+
+    if (jsonMode) {
+      body.response_format = { type: 'json_object' };
+    }
+
+    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => response.statusText);
+      throw new Error(`Cloud LLM request failed (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    if (jsonMode) {
+      try {
+        return JSON.parse(content);
+      } catch {
+        return content;
+      }
+    }
+
+    return content;
+  }
+
+  private async callOllamaLLM(prompt: string, systemPrompt?: string, jsonMode = false): Promise<any> {
     const request = {
       model: OLLAMA_MODEL,
       prompt,
