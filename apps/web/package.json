@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "prisma generate --schema=../../packages/db/prisma/schema.prisma && next build",
     "start": "next start -p 3000",
     "lint": "next lint"
   },
@@ -13,6 +13,8 @@
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "@prisma/client": "^5.9.0",
+    "prisma": "^5.9.0",
     "@zyphon/db": "workspace:*",
     "@zyphon/shared": "workspace:*",
     "autoprefixer": "^10.4.17",
