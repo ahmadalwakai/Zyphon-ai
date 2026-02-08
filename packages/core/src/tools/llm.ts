@@ -46,10 +46,6 @@ export class LLMTool {
   private baseUrl: string;
   private model: string;
   private timeout: number;
-  private useCloudLLM: boolean;
-  private openaiApiKey: string;
-  private openaiBaseUrl: string;
-  private openaiModel: string;
 
   constructor(
     baseUrl: string = process.env['OLLAMA_BASE_URL'] || 'http://localhost:11434',
@@ -59,10 +55,6 @@ export class LLMTool {
     this.baseUrl = baseUrl;
     this.model = model;
     this.timeout = timeout;
-    this.openaiApiKey = process.env['OPENAI_API_KEY'] || '';
-    this.openaiBaseUrl = process.env['OPENAI_BASE_URL'] || 'https://api.openai.com/v1';
-    this.openaiModel = process.env['OPENAI_MODEL'] || 'gpt-4o-mini';
-    this.useCloudLLM = !!this.openaiApiKey;
   }
 
   async listModels(): Promise<OllamaModel[]> {
@@ -90,85 +82,6 @@ export class LLMTool {
   }
 
   async generate(input: LLMToolInput): Promise<ToolResult> {
-    if (this.useCloudLLM) {
-      return this.generateCloud(input);
-    }
-    return this.generateOllama(input);
-  }
-
-  private async generateCloud(input: LLMToolInput): Promise<ToolResult> {
-    const startTime = Date.now();
-
-    try {
-      const systemPrompt = input.systemPrompt || this.getDefaultSystemPrompt(input.jsonMode);
-
-      const messages = [
-        { role: 'system' as const, content: systemPrompt },
-        { role: 'user' as const, content: input.prompt },
-      ];
-
-      const body: Record<string, any> = {
-        model: this.openaiModel,
-        messages,
-        temperature: input.temperature ?? 0.1,
-        max_tokens: input.maxTokens ?? 4096,
-      };
-
-      if (input.jsonMode) {
-        body['response_format'] = { type: 'json_object' };
-      }
-
-      logger.info({ model: this.openaiModel, promptLength: input.prompt.length }, 'Calling Cloud LLM');
-
-      const response = await fetch(`${this.openaiBaseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeout),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => response.statusText);
-        throw new Error(`Cloud LLM API error: ${response.status} ${errText}`);
-      }
-
-      const data = await response.json() as any;
-      const duration = Date.now() - startTime;
-      let output = data.choices?.[0]?.message?.content || '';
-
-      logger.info({ duration, model: this.openaiModel }, 'Cloud LLM response received');
-
-      if (input.jsonMode) {
-        try {
-          output = JSON.parse(output);
-        } catch {
-          logger.warn('Failed to parse JSON response, returning raw');
-        }
-      }
-
-      return {
-        success: true,
-        output,
-        duration,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ error, duration }, 'Cloud LLM tool failed');
-
-      return {
-        success: false,
-        output: null,
-        error: message,
-        duration,
-      };
-    }
-  }
-
-  private async generateOllama(input: LLMToolInput): Promise<ToolResult> {
     const startTime = Date.now();
 
     try {
