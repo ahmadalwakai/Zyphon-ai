@@ -108,12 +108,18 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      bullmq:
+        specifier: ^5.1.0
+        version: 5.67.3
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
       framer-motion:
         specifier: ^11.0.3
         version: 11.18.2(react-dom@18.3.1)(react@18.3.1)
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.9.2
       lucide-react:
         specifier: ^0.323.0
         version: 0.323.0(react@18.3.1)

@@ -5,7 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@zyphon/shared', '@zyphon/db'],
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'bcryptjs'],
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'bcryptjs', 'bullmq', 'ioredis'],
     // Optimize server-side bundle splitting for cold start reduction
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },

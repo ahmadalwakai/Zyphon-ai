@@ -1,8 +1,15 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment-specific .env file
+const envFile = process.env['NODE_ENV'] === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { 
   orchestrator, 
+  UserTaskOrchestrator,
   BrowserTool, 
   startupService,
   creditService,
@@ -26,6 +33,7 @@ const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
 interface TaskJobData {
   taskId: string;
   userId?: string;
+  type?: 'org' | 'user';
 }
 
 // Track usage per task
@@ -43,7 +51,10 @@ async function processTask(job: Job<TaskJobData>): Promise<void> {
   const { taskId } = job.data;
   const startTime = Date.now();
 
-  logger.info({ taskId, jobId: job.id }, 'Processing task');
+  logger.info(
+    { taskId, userId: job.data.userId, type: job.data.type, jobId: job.id },
+    '▶ JOB START',
+  );
 
   // Initialize usage tracking
   taskUsage.set(taskId, {
@@ -76,61 +87,19 @@ async function processTask(job: Job<TaskJobData>): Promise<void> {
         throw new Error(`Task not found: ${taskId}`);
       }
 
-      // User task flow
-      const userId = userTask.workspace.userId;
+      // User task flow — uses UserTaskOrchestrator (prisma.userTask tables)
+      // Guardrails + credits already handled by the web route before enqueue.
+      const userId = job.data.userId || userTask.workspace.userId;
 
-      // Check guardrails
-      const concurrentCheck = await guardrailsService.checkConcurrentTasks(userId);
-      if (!concurrentCheck.allowed) {
-        throw new Error(concurrentCheck.error);
-      }
+      logger.info({ taskId, userId }, 'Running UserTaskOrchestrator');
 
-      // Pre-authorize credits
-      const preAuth = await creditService.preAuthorize(
-        userId,
-        taskId,
-        userTask.type as 'CODING' | 'IMAGE' | 'MIXED',
-        16 // maxSteps
+      const runner = new UserTaskOrchestrator();
+      await runner.runTask(taskId, userId);
+
+      logger.info(
+        { taskId, jobId: job.id, durationMs: Date.now() - startTime },
+        '✔ JOB FINISHED (user task)',
       );
-
-      if (!preAuth.success) {
-        throw new Error(preAuth.error);
-      }
-
-      // Record usage event
-      await prisma.usageEvent.create({
-        data: {
-          orgId: 'user_tasks', // Placeholder for user tasks
-          taskId,
-          event: 'task.started',
-          tokens: 0,
-          cost: 0,
-          metadata: { userId, preAuth: preAuth.estimatedCredits },
-        },
-      }).catch(() => {}); // Ignore if table doesn't exist
-
-      // Run the orchestrator
-      await orchestrator.runTask(taskId);
-
-      // Record completion
-      const usage = taskUsage.get(taskId);
-      await prisma.usageEvent.create({
-        data: {
-          orgId: 'user_tasks',
-          taskId,
-          event: 'task.completed',
-          tokens: (usage?.llmInputTokens || 0) + (usage?.llmOutputTokens || 0),
-          cost: 0,
-          metadata: usage,
-        },
-      }).catch(() => {});
-
-      // Reconcile credits
-      if (usage) {
-        await creditService.reconcile(taskId, usage, false);
-      }
-
-      logger.info({ taskId, jobId: job.id }, 'Task completed successfully');
       return;
     }
 
@@ -161,25 +130,15 @@ async function processTask(job: Job<TaskJobData>): Promise<void> {
       },
     });
 
-    logger.info({ taskId, jobId: job.id }, 'Task completed successfully');
+    logger.info(
+      { taskId, jobId: job.id, durationMs: Date.now() - startTime },
+      '✔ JOB FINISHED (org task)',
+    );
   } catch (error) {
     taskFailed = true;
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error({ taskId, jobId: job.id, error: message }, 'Task failed');
-
-    // Reconcile credits on failure
-    const usage = taskUsage.get(taskId);
-    if (usage) {
-      // Get user ID from task
-      const userTask = await prisma.userTask.findUnique({
-        where: { id: taskId },
-        include: { workspace: { select: { userId: true } } },
-      }).catch(() => null);
-
-      if (userTask) {
-        await creditService.reconcile(taskId, usage, true);
-      }
-    }
+    const stack = error instanceof Error ? error.stack : undefined;
+    logger.error({ taskId, jobId: job.id, error: message, stack }, '✖ JOB FAILED');
 
     throw error;
   } finally {

@@ -1,4 +1,10 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment-specific .env file
+const envFile = process.env['NODE_ENV'] === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -11,6 +17,7 @@ import { auditPlugin } from './plugins/audit.js';
 import { publicRoutes } from './routes/public.js';
 import { adminRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
+import { artifactRoutes } from './routes/artifacts.js';
 import * as pinoModule from 'pino';
 
 const pino = (pinoModule as any).default || pinoModule;
@@ -87,6 +94,7 @@ async function main() {
   // Routes
   await app.register(healthRoutes, { prefix: '/health' });
   await app.register(publicRoutes, { prefix: '/v1' });
+  await app.register(artifactRoutes, { prefix: '/v1' });
   await app.register(adminRoutes, { prefix: '/admin' });
 
   // Error handler

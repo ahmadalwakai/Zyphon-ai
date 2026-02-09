@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "index": 0,
+      "name": "Generate Prompt",
+      "description": "Create a detailed prompt for the image generation tool",
+      "tool": "LLM",
+      "input": {
+        "prompt": "Generate a simple test image of a sunset over mountains with soft, warm colors and gentle gradients."
+      },
+      "dependsOn": []
+    },
+    {
+      "index": 1,
+      "name": "Image Generation",
+      "description": "Use the generated prompt to create an image of a sunset over mountains",
+      "tool": "IMAGE",
+      "input": {
+        "prompt": "Generate a simple test image of a sunset over mountains with soft, warm colors and gentle gradients."
+      },
+      "dependsOn": [
+        "Generate Prompt"
+      ]
+    }
+  ]
+}

@@ -78,8 +78,21 @@ const statusConfig: Record<string, { bg: string; text: string; icon: typeof Load
 
 function StepCard({ step, isActive }: { step: TaskStep; isActive: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
   const { bg, text, icon: StatusIcon } = statusConfig[step.status] || statusConfig.PENDING;
   const ToolIcon = toolIcons[step.tool] || Code2;
+  const progressLines: string[] | null = step.output?.progress ? step.output.progress : null;
+  const stepResult = step.output?.result ?? (step.output && !step.output.progress ? step.output : null);
+
+  // Auto-expand when running with progress
+  useEffect(() => {
+    if (progressLines && progressLines.length > 0) setExpanded(true);
+  }, [progressLines?.length]);
+
+  // Auto-scroll log
+  useEffect(() => {
+    if (expanded && logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [expanded, progressLines?.length]);
 
   return (
     <motion.div
@@ -125,13 +138,27 @@ function StepCard({ step, isActive }: { step: TaskStep; isActive: boolean }) {
                 </div>
               )}
               
-              {step.output && (
+              {/* Live progress log for running steps */}
+              {progressLines && progressLines.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-2 flex items-center gap-2">
+                    {step.status === 'RUNNING' && <Loader2 className="w-3 h-3 animate-spin" />}
+                    {step.status === 'RUNNING' ? 'Live Progress' : 'Progress Log'}
+                  </p>
+                  <pre className="p-3 bg-background rounded-lg text-xs font-mono overflow-auto max-h-48 text-green-400">
+                    {progressLines.join('\n')}
+                    <div ref={logEndRef} />
+                  </pre>
+                </div>
+              )}
+
+              {stepResult && (
                 <div>
                   <p className="text-xs text-gray-400 mb-2">Output</p>
                   <pre className="p-3 bg-background rounded-lg text-sm overflow-auto max-h-64">
-                    {typeof step.output === 'string' 
-                      ? step.output 
-                      : JSON.stringify(step.output, null, 2)}
+                    {typeof stepResult === 'string' 
+                      ? stepResult 
+                      : JSON.stringify(stepResult, null, 2)}
                   </pre>
                 </div>
               )}

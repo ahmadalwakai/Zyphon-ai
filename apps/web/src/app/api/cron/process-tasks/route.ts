@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@zyphon/db';
+import { Queue } from 'bullmq';
+import IORedis from 'ioredis';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5 minutes max for Vercel Pro
+
+let _queue: Queue | null = null;
+function getTaskQueue(): Queue {
+  if (!_queue) {
+    const Redis = (IORedis as any).default || IORedis;
+    const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: null,
+      lazyConnect: true,
+    });
+    _queue = new Queue('tasks', { connection });
+  }
+  return _queue;
+}
 
 /**
  * Vercel Cron Job / Manual Trigger for Task Processing
- * 
- * Since Vercel doesn't support long-running background workers,
- * this endpoint can be called periodically (via Vercel Cron) to
- * pick up QUEUED tasks and process them.
- * 
+ *
+ * Picks up QUEUED user tasks and enqueues them to BullMQ for the worker.
+ * Does NOT execute tasks in-process.
+ *
  * Configure in vercel.json:
  *   "crons": [{ "path": "/api/cron/process-tasks", "schedule": "every 2 minutes" }]
- * 
- * Security: Protected by CRON_SECRET header check.
  */
 
 export async function GET(request: NextRequest) {
@@ -108,32 +119,39 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Execute task
+    // Enqueue to BullMQ — worker handles execution
     try {
-      const { UserTaskOrchestrator } = await import('../../../../lib/user-orchestrator');
-      const orchestrator = new UserTaskOrchestrator();
-      await orchestrator.runTask(queuedTask.id, userId);
+      const queue = getTaskQueue();
+      await queue.add('user-task', {
+        taskId: queuedTask.id,
+        userId,
+        type: 'user',
+      }, {
+        attempts: 1,
+        removeOnComplete: 100,
+        removeOnFail: 200,
+      });
 
       return NextResponse.json({
         success: true,
-        message: `Task ${queuedTask.id} completed`,
+        message: `Task ${queuedTask.id} enqueued`,
         processed: 1,
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      
+
       await prisma.userTask.update({
         where: { id: queuedTask.id },
         data: {
           status: 'FAILED',
-          error: errorMsg,
+          error: `Failed to enqueue: ${errorMsg}`,
           completedAt: new Date(),
         },
       });
 
       return NextResponse.json({
         success: false,
-        message: `Task ${queuedTask.id} failed: ${errorMsg}`,
+        message: `Task ${queuedTask.id} enqueue failed: ${errorMsg}`,
         processed: 1,
       });
     }

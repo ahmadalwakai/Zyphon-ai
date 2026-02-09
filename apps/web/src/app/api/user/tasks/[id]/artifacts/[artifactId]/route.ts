@@ -7,7 +7,14 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-// MIME type mapping
+/**
+ * When INTERNAL_API_URL is set (e.g. on Vercel), proxy artifact requests
+ * to the self-hosted API server.  Otherwise serve from the local filesystem.
+ */
+const INTERNAL_API_URL = process.env['INTERNAL_API_URL'] || process.env['NEXT_PUBLIC_API_URL'] || '';
+const INTERNAL_API_SECRET = process.env['INTERNAL_API_SECRET'] || '';
+
+// MIME type mapping (only used for local-disk fallback)
 const mimeTypes: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -51,7 +58,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const download = searchParams.get('download') === 'true';
 
-    // Find the artifact (use userArtifact for UserTask)
+    // Find the artifact and verify ownership
     const artifact = await prisma.userArtifact.findFirst({
       where: {
         id: artifactId,
@@ -74,19 +81,48 @@ export async function GET(
       );
     }
 
-    // Construct full path - artifact.path should be absolute
+    // ── Proxy mode (Vercel / remote API) ─────────────────────────────
+    if (INTERNAL_API_URL) {
+      const apiUrl = `${INTERNAL_API_URL.replace(/\/$/, '')}/v1/artifacts/${artifactId}${download ? '?download=true' : ''}`;
+      const headers: HeadersInit = {};
+      if (INTERNAL_API_SECRET) {
+        headers['x-internal-secret'] = INTERNAL_API_SECRET;
+      }
+
+      const upstream = await fetch(apiUrl, { headers });
+      if (!upstream.ok) {
+        const body = await upstream.text().catch(() => '');
+        console.error(`Artifact proxy failed (${upstream.status}): ${body}`);
+        return NextResponse.json(
+          { success: false, error: { message: 'Failed to fetch artifact from API' } },
+          { status: upstream.status }
+        );
+      }
+
+      // Forward response headers from the API
+      const responseHeaders: HeadersInit = {};
+      for (const key of ['content-type', 'content-length', 'content-disposition', 'cache-control']) {
+        const val = upstream.headers.get(key);
+        if (val) responseHeaders[key] = val;
+      }
+
+      return new NextResponse(upstream.body as any, {
+        status: 200,
+        headers: responseHeaders,
+      });
+    }
+
+    // ── Local-disk mode (self-hosted / same machine) ─────────────────
     const fullPath = path.isAbsolute(artifact.path)
       ? artifact.path
       : path.join(artifact.task.workspacePath, artifact.path);
 
-    // Security check - ensure path is within workspace or is the stored absolute path
+    // Security check
     const normalizedPath = path.normalize(fullPath);
     const workspacePath = path.normalize(artifact.task.workspacePath);
-    
-    // Allow if path starts with workspace OR if using stored absolute path
     const isWithinWorkspace = normalizedPath.startsWith(workspacePath);
     const isStoredAbsolutePath = path.isAbsolute(artifact.path) && normalizedPath === path.normalize(artifact.path);
-    
+
     if (!isWithinWorkspace && !isStoredAbsolutePath) {
       return NextResponse.json(
         { success: false, error: { message: 'Access denied' } },
@@ -94,7 +130,6 @@ export async function GET(
       );
     }
 
-    // Check if file exists
     if (!existsSync(fullPath)) {
       return NextResponse.json(
         { success: false, error: { message: 'Artifact file not found on disk' } },
@@ -102,10 +137,7 @@ export async function GET(
       );
     }
 
-    // Get file stats
     const stats = await stat(fullPath);
-    
-    // Size limit for direct serving (10MB)
     const MAX_SERVE_SIZE = 10 * 1024 * 1024;
     if (stats.size > MAX_SERVE_SIZE) {
       return NextResponse.json(
@@ -114,11 +146,9 @@ export async function GET(
       );
     }
 
-    // Read the file
     const content = await readFile(fullPath);
     const mimeType = getMimeType(fullPath);
 
-    // Build response headers
     const headers: HeadersInit = {
       'Content-Type': mimeType,
       'Content-Length': stats.size.toString(),
@@ -130,7 +160,6 @@ export async function GET(
       headers['Content-Disposition'] = `inline; filename="${artifact.name}"`;
     }
 
-    // Cache images for 1 hour, text files for 5 minutes
     if (mimeType.startsWith('image/')) {
       headers['Cache-Control'] = 'private, max-age=3600';
     } else {

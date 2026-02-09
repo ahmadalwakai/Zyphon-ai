@@ -13,6 +13,7 @@ export { PlannerAgent } from './agents/planner.js';
 export { ExecutorAgent } from './agents/executor.js';
 export { CriticAgent } from './agents/critic.js';
 export { Orchestrator, orchestrator } from './orchestrator/index.js';
+export { UserTaskOrchestrator } from './orchestrator/user-task-runner.js';
 
 // Services
 export { CreditService, creditService } from './services/credit.js';

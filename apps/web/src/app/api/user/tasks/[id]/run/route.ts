@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@zyphon/db';
 import { getAuthUser } from '../../../../../../lib/auth';
+import { Queue } from 'bullmq';
+import IORedis from 'ioredis';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // Allow up to 5 minutes for task execution (Vercel Pro)
 
-// Import orchestrator for direct execution (or queue via Redis)
-// Uses dynamic import to reduce cold start time
+// ── BullMQ queue (lazy singleton) ──────────────────────────────────────
+let _queue: Queue | null = null;
+
+function getTaskQueue(): Queue {
+  if (!_queue) {
+    const Redis = (IORedis as any).default || IORedis;
+    const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: null,
+      lazyConnect: true,
+    });
+    _queue = new Queue('tasks', { connection });
+  }
+  return _queue;
+}
 
 export async function POST(
   request: NextRequest,
@@ -90,13 +103,23 @@ export async function POST(
       },
     });
 
-    // Start execution in background
-    // In production, this should be queued via Redis/BullMQ
-    runTaskInBackground(taskId, user.id).catch(console.error);
+    // ── Enqueue to BullMQ (worker picks this up) ──
+    const queue = getTaskQueue();
+    const job = await queue.add('user-task', {
+      taskId,
+      userId: user.id,
+      type: 'user',
+    }, {
+      attempts: 1,
+      removeOnComplete: 100,
+      removeOnFail: 200,
+    });
+
+    console.log(`[WEB:run] Enqueued taskId=${taskId} userId=${user.id} → jobId=${job.id}`);
 
     return NextResponse.json({
       success: true,
-      data: { taskId, status: 'RUNNING' },
+      data: { taskId, status: 'RUNNING', jobId: job.id },
     });
   } catch (error) {
     console.error('Run task error:', error);
@@ -104,47 +127,5 @@ export async function POST(
       { success: false, error: { message: 'Internal server error' } },
       { status: 500 }
     );
-  }
-}
-
-async function runTaskInBackground(taskId: string, userId: string) {
-  try {
-    // Validate critical env vars before attempting execution
-    if (!process.env.DATABASE_URL) {
-      throw new Error('ENV_MISSING: DATABASE_URL is not configured. Set it in Vercel Environment Variables.');
-    }
-    
-    const ollamaUrl = process.env.OLLAMA_BASE_URL || process.env.OLLAMA_URL;
-    if (!ollamaUrl) {
-      console.warn('[Task Runner] OLLAMA_BASE_URL not set, using default localhost:11434');
-    }
-
-    // Dynamic import to avoid server-side cold start overhead
-    const { UserTaskOrchestrator } = await import('../../../../../../lib/user-orchestrator');
-    const orchestrator = new UserTaskOrchestrator();
-    await orchestrator.runTask(taskId, userId);
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Task Runner] Task ${taskId} failed:`, errorMsg);
-    
-    // Provide user-friendly error messages
-    let userError = errorMsg;
-    if (errorMsg.includes('fetch failed') || errorMsg.includes('ECONNREFUSED')) {
-      userError = 'Service connection failed. The AI service (Ollama) may be unavailable. Please try again later or contact support.';
-    } else if (errorMsg.includes('ENV_MISSING')) {
-      userError = 'Platform configuration error. Please contact support.';
-    } else if (errorMsg.includes('timeout') || errorMsg.includes('TIMEOUT')) {
-      userError = 'Task timed out. The AI service took too long to respond. Please try again with a simpler request.';
-    }
-
-    // Update task with error
-    await prisma.userTask.update({
-      where: { id: taskId },
-      data: {
-        status: 'FAILED',
-        error: userError,
-        completedAt: new Date(),
-      },
-    });
   }
 }

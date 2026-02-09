@@ -4,13 +4,17 @@ import { existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { prisma } from '@zyphon/db';
 
-const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || (process.env.VERCEL ? '/tmp/workspaces' : './workspaces');
+// Resolve WORKSPACE_ROOT to an absolute path (relative paths break under Next.js)
+const _rawWorkspaceRoot = process.env.WORKSPACE_ROOT || (process.env.VERCEL ? '/tmp/workspaces' : './workspaces');
+const WORKSPACE_ROOT = path.isAbsolute(_rawWorkspaceRoot) ? _rawWorkspaceRoot : path.resolve(process.cwd(), _rawWorkspaceRoot);
+
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'deepseek-coder-v2:16b';
 const SD3_SCRIPT_PATH = process.env.SD3_SCRIPT_PATH || '';
 const SD3_MODEL_PATH = process.env.SD3_MODEL_PATH || '';
 const SD3_TIMEOUT_MS = 300000; // 5 minutes
-const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS || '120000', 10);
+const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS || '300000', 10); // 5 min default (matches core)
+const PYTHON_BIN = process.env.PYTHON_BIN || 'python';
 
 interface PlanStep {
   index: number;
@@ -50,8 +54,10 @@ export class UserTaskOrchestrator {
     };
 
     let response: Response;
+    const fetchUrl = `${OLLAMA_BASE_URL}/api/generate`;
+    console.log(`[Orchestrator][LLM] Fetching ${fetchUrl} (timeout: ${LLM_TIMEOUT_MS}ms, model: ${OLLAMA_MODEL})`);
     try {
-      response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+      response = await fetch(fetchUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
@@ -87,6 +93,14 @@ export class UserTaskOrchestrator {
 
   async runTask(taskId: string, userId: string): Promise<void> {
     console.log(`[Orchestrator] Starting task ${taskId}`);
+    console.log(`[Orchestrator][CONFIG] OLLAMA_BASE_URL = ${OLLAMA_BASE_URL}`);
+    console.log(`[Orchestrator][CONFIG] OLLAMA_MODEL = ${OLLAMA_MODEL}`);
+    console.log(`[Orchestrator][CONFIG] WORKSPACE_ROOT = ${WORKSPACE_ROOT}`);
+    console.log(`[Orchestrator][CONFIG] SD3_SCRIPT_PATH = ${SD3_SCRIPT_PATH || '(not set)'}`);
+    console.log(`[Orchestrator][CONFIG] SD3_MODEL_PATH = ${SD3_MODEL_PATH || '(not set)'}`);
+    console.log(`[Orchestrator][CONFIG] PYTHON_BIN = ${PYTHON_BIN}`);
+    console.log(`[Orchestrator][CONFIG] LLM_TIMEOUT_MS = ${LLM_TIMEOUT_MS}`);
+    console.log(`[Orchestrator][CONFIG] SD3_TIMEOUT_MS = ${SD3_TIMEOUT_MS}`);
     this.artifacts = []; // Reset artifacts for this task
 
     const task = await prisma.userTask.findUnique({
@@ -498,9 +512,10 @@ Create a plan to accomplish this goal. Be specific and actionable.`;
         '--model', SD3_MODEL_PATH,
       ];
 
-      console.log(`[Orchestrator] Running: python ${args.join(' ')}`);
+      console.log(`[Orchestrator][SD3] Spawn: ${PYTHON_BIN} ${args.join(' ')}`);
+      console.log(`[Orchestrator][SD3] PYTHON_BIN resolved from: ${process.env.PYTHON_BIN ? 'env' : 'default (python)'}`);
 
-      const process = spawn('python', args, {
+      const proc = spawn(PYTHON_BIN, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: SD3_TIMEOUT_MS,
       });
@@ -508,26 +523,31 @@ Create a plan to accomplish this goal. Be specific and actionable.`;
       let stdout = '';
       let stderr = '';
 
-      process.stdout.on('data', (data) => {
+      proc.stdout.on('data', (data) => {
         stdout += data.toString();
         console.log(`[SD3] ${data.toString().trim()}`);
       });
 
-      process.stderr.on('data', (data) => {
+      proc.stderr.on('data', (data) => {
         stderr += data.toString();
-        console.log(`[SD3 ERR] ${data.toString().trim()}`);
+        console.error(`[SD3 ERR] ${data.toString().trim()}`);
       });
 
-      process.on('close', (code) => {
+      proc.on('close', (code) => {
         if (code === 0) {
           resolve();
         } else {
+          console.error(`[SD3] Process exited with code ${code}`);
+          console.error(`[SD3] Full stderr:\n${stderr}`);
+          console.error(`[SD3] Full stdout:\n${stdout}`);
           reject(new Error(`SD3 script failed with code ${code}: ${stderr || stdout}`));
         }
       });
 
-      process.on('error', (error) => {
-        reject(error);
+      proc.on('error', (error) => {
+        console.error(`[SD3] Spawn error: ${error.message}`);
+        console.error(`[SD3] Spawn error stack: ${error.stack}`);
+        reject(new Error(`SD3_SPAWN_ERROR: Failed to spawn '${PYTHON_BIN}'. Is Python installed and in PATH? Error: ${error.message}`));
       });
     });
   }
