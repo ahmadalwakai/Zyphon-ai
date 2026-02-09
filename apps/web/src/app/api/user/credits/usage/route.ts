@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // Helper to get authenticated user
 async function getAuthUser() {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
+  const sessionToken = cookieStore.get('session')?.value || cookieStore.get('session_token')?.value;
   
   if (!sessionToken) return null;
   

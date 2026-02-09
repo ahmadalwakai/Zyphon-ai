@@ -5,11 +5,12 @@ import { spawn } from 'child_process';
 import { prisma } from '@zyphon/db';
 
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || (process.env.VERCEL ? '/tmp/workspaces' : './workspaces');
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'deepseek-coder-v2:16b';
 const SD3_SCRIPT_PATH = process.env.SD3_SCRIPT_PATH || '';
 const SD3_MODEL_PATH = process.env.SD3_MODEL_PATH || '';
 const SD3_TIMEOUT_MS = 300000; // 5 minutes
+const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS || '120000', 10);
 
 interface PlanStep {
   index: number;
@@ -48,12 +49,24 @@ export class UserTaskOrchestrator {
       },
     };
 
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(120000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      if (msg.includes('abort') || msg.includes('timeout')) {
+        throw new Error(`LLM_TIMEOUT: Request to ${OLLAMA_BASE_URL} timed out after ${LLM_TIMEOUT_MS}ms. Is Ollama running and accessible?`);
+      }
+      if (msg.includes('fetch failed') || msg.includes('ECONNREFUSED')) {
+        throw new Error(`LLM_UNREACHABLE: Cannot connect to Ollama at ${OLLAMA_BASE_URL}. Ensure OLLAMA_BASE_URL is set correctly and the service is running. Error: ${msg}`);
+      }
+      throw new Error(`LLM_CONNECTION_ERROR: Failed to reach Ollama at ${OLLAMA_BASE_URL}. Error: ${msg}`);
+    }
 
     if (!response.ok) {
       throw new Error(`LLM request failed: ${response.statusText}`);

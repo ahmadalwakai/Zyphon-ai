@@ -3,10 +3,10 @@ import { prisma } from '@zyphon/db';
 import { getAuthUser } from '../../../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // Allow up to 5 minutes for task execution (Vercel Pro)
 
 // Import orchestrator for direct execution (or queue via Redis)
-// For now, we'll use direct execution for simplicity
-// In production, this should go through a job queue
+// Uses dynamic import to reduce cold start time
 
 export async function POST(
   request: NextRequest,
@@ -109,19 +109,40 @@ export async function POST(
 
 async function runTaskInBackground(taskId: string, userId: string) {
   try {
-    // Dynamic import to avoid server-side issues
+    // Validate critical env vars before attempting execution
+    if (!process.env.DATABASE_URL) {
+      throw new Error('ENV_MISSING: DATABASE_URL is not configured. Set it in Vercel Environment Variables.');
+    }
+    
+    const ollamaUrl = process.env.OLLAMA_BASE_URL || process.env.OLLAMA_URL;
+    if (!ollamaUrl) {
+      console.warn('[Task Runner] OLLAMA_BASE_URL not set, using default localhost:11434');
+    }
+
+    // Dynamic import to avoid server-side cold start overhead
     const { UserTaskOrchestrator } = await import('../../../../../../lib/user-orchestrator');
     const orchestrator = new UserTaskOrchestrator();
     await orchestrator.runTask(taskId, userId);
   } catch (error) {
-    console.error('Background task error:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[Task Runner] Task ${taskId} failed:`, errorMsg);
     
+    // Provide user-friendly error messages
+    let userError = errorMsg;
+    if (errorMsg.includes('fetch failed') || errorMsg.includes('ECONNREFUSED')) {
+      userError = 'Service connection failed. The AI service (Ollama) may be unavailable. Please try again later or contact support.';
+    } else if (errorMsg.includes('ENV_MISSING')) {
+      userError = 'Platform configuration error. Please contact support.';
+    } else if (errorMsg.includes('timeout') || errorMsg.includes('TIMEOUT')) {
+      userError = 'Task timed out. The AI service took too long to respond. Please try again with a simpler request.';
+    }
+
     // Update task with error
     await prisma.userTask.update({
       where: { id: taskId },
       data: {
         status: 'FAILED',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: userError,
         completedAt: new Date(),
       },
     });

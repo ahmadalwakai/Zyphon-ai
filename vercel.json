@@ -2,5 +2,19 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "outputDirectory": "apps/web/.next",
-  "ignoreCommand": "npx turbo-ignore"
+  "ignoreCommand": "npx turbo-ignore",
+  "crons": [
+    {
+      "path": "/api/cron/process-tasks",
+      "schedule": "*/2 * * * *"
+    }
+  ],
+  "functions": {
+    "apps/web/src/app/api/cron/process-tasks/route.ts": {
+      "maxDuration": 300
+    },
+    "apps/web/src/app/api/user/tasks/*/run/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }

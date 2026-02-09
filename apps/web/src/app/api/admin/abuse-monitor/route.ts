@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // Helper to get admin user
 async function getAdminUser() {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
+  const sessionToken = cookieStore.get('session')?.value || cookieStore.get('session_token')?.value;
   
   if (!sessionToken) return null;
   
