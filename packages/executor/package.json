@@ -1,0 +1,23 @@
+{
+  "name": "@zyphon/executor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@zyphon/shared": "workspace:*",
+    "memfs": "^4.6.0",
+    "archiver": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/archiver": "^6.0.2",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

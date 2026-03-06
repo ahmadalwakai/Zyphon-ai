@@ -28,6 +28,7 @@ const logger = pino({
 
 const PORT = parseInt(process.env['API_PORT'] || '3002', 10);
 const HOST = process.env['API_HOST'] || '0.0.0.0';
+const FEATURE_B2B = process.env['FEATURE_B2B'] === 'true';
 
 async function main() {
   const app = Fastify({
@@ -91,11 +92,18 @@ async function main() {
   await app.register(authPlugin);
   await app.register(auditPlugin);
 
-  // Routes
+  // Routes - always registered
   await app.register(healthRoutes, { prefix: '/health' });
-  await app.register(publicRoutes, { prefix: '/v1' });
   await app.register(artifactRoutes, { prefix: '/v1' });
-  await app.register(adminRoutes, { prefix: '/admin' });
+  
+  // B2B routes - only registered when FEATURE_B2B is enabled
+  if (FEATURE_B2B) {
+    logger.info('B2B features enabled - registering admin and public task routes');
+    await app.register(publicRoutes, { prefix: '/v1' });
+    await app.register(adminRoutes, { prefix: '/admin' });
+  } else {
+    logger.info('B2B features disabled (FEATURE_B2B=false)');
+  }
 
   // Error handler
   app.setErrorHandler((error, request, reply) => {
@@ -130,6 +138,7 @@ async function main() {
 ║  API:     http://localhost:${PORT}                              ║
 ║  Docs:    http://localhost:${PORT}/docs                         ║
 ║  Health:  http://localhost:${PORT}/health                       ║
+║  B2B:     ${FEATURE_B2B ? 'ENABLED' : 'DISABLED'}                                           ║
 ╚═══════════════════════════════════════════════════════════════╝
     `);
   } catch (err) {

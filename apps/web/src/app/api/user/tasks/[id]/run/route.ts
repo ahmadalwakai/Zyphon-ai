@@ -11,8 +11,10 @@ let _queue: Queue | null = null;
 
 function getTaskQueue(): Queue {
   if (!_queue) {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6380';
+    console.log('[WEB:getTaskQueue] Connecting to Redis:', redisUrl);
     const Redis = (IORedis as any).default || IORedis;
-    const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    const connection = new Redis(redisUrl, {
       maxRetriesPerRequest: null,
       lazyConnect: true,
     });

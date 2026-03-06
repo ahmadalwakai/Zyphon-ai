@@ -3,9 +3,9 @@ const nextConfig = {
   // standalone output is needed for Vercel but requires symlink support (fails on Windows)
   output: process.env.VERCEL || process.env.CI ? 'standalone' : undefined,
   reactStrictMode: true,
-  transpilePackages: ['@zyphon/shared', '@zyphon/db'],
+  transpilePackages: ['@zyphon/shared', '@zyphon/db', '@zyphon/agent', '@zyphon/executor'],
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'bcryptjs', 'bullmq', 'ioredis'],
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'bcryptjs', 'bullmq', 'ioredis', 'archiver', 'memfs'],
     // Optimize server-side bundle splitting for cold start reduction
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },

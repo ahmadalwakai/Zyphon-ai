@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { prisma } from '@zyphon/db';
+import { LLMTool } from '../tools/llm.js';
 import * as pinoModule from 'pino';
 
 const pino = (pinoModule as any).default || pinoModule;
@@ -18,7 +19,8 @@ const logger = pino({ name: 'user-task-runner' });
 // ── Config (resolved once at module load) ──────────────────────────────────
 const _rawWs = process.env['WORKSPACE_ROOT'] || (process.env['VERCEL'] ? '/tmp/workspaces' : './workspaces');
 const WORKSPACE_ROOT = path.isAbsolute(_rawWs) ? _rawWs : path.resolve(process.cwd(), _rawWs);
-const OLLAMA_BASE_URL = process.env['OLLAMA_BASE_URL'] || process.env['OLLAMA_URL'] || 'http://localhost:11434';
+const LLM_PROVIDER = process.env['LLM_PROVIDER'] || 'groq';
+const GROQ_MODEL = process.env['GROQ_MODEL'] || 'llama-3.3-70b-versatile';
 const OLLAMA_MODEL = process.env['OLLAMA_MODEL'] || 'deepseek-coder-v2:16b';
 const SD3_SCRIPT_PATH = process.env['SD3_SCRIPT_PATH'] || '';
 const SD3_MODEL_PATH = process.env['SD3_MODEL_PATH'] || '';
@@ -51,50 +53,33 @@ interface ArtifactRecord {
 // ── Class ──────────────────────────────────────────────────────────────────
 export class UserTaskOrchestrator {
   private artifacts: ArtifactRecord[] = [];
+  private llmTool: LLMTool;
 
-  // ── LLM call ─────────────────────────────────────────────────────────
+  constructor() {
+    this.llmTool = new LLMTool();
+  }
+
+  // ── LLM call (uses unified LLMTool) ──────────────────────────────────
   private async callLLM(prompt: string, systemPrompt?: string, jsonMode = false): Promise<any> {
-    const body = {
-      model: OLLAMA_MODEL,
+    logger.info({ 
+      provider: this.llmTool.getProvider(), 
+      model: this.llmTool.getModel(), 
+      timeout: LLM_TIMEOUT_MS 
+    }, 'LLM request');
+
+    const result = await this.llmTool.generate({
       prompt,
-      system: systemPrompt || 'You are a helpful AI assistant.',
-      stream: false,
-      format: jsonMode ? 'json' : undefined,
-      options: { temperature: 0.1, num_predict: 4096 },
-    };
+      systemPrompt: systemPrompt || 'You are a helpful AI assistant.',
+      jsonMode,
+      temperature: 0.1,
+      maxTokens: 4096,
+    });
 
-    const url = `${OLLAMA_BASE_URL}/api/generate`;
-    logger.info({ url, model: OLLAMA_MODEL, timeout: LLM_TIMEOUT_MS }, 'LLM request');
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      if (msg.includes('abort') || msg.includes('timeout')) {
-        throw new Error(`LLM_TIMEOUT: ${OLLAMA_BASE_URL} timed out after ${LLM_TIMEOUT_MS}ms`);
-      }
-      if (msg.includes('fetch failed') || msg.includes('ECONNREFUSED')) {
-        throw new Error(`LLM_UNREACHABLE: Cannot connect to Ollama at ${OLLAMA_BASE_URL}. Error: ${msg}`);
-      }
-      throw new Error(`LLM_CONNECTION_ERROR: ${msg}`);
+    if (!result.success) {
+      throw new Error(result.error || 'LLM call failed');
     }
 
-    if (!response.ok) {
-      throw new Error(`LLM request failed: ${response.statusText}`);
-    }
-
-    const data: any = await response.json();
-
-    if (jsonMode) {
-      try { return JSON.parse(data.response); } catch { return data.response; }
-    }
-    return data.response;
+    return result.output;
   }
 
   // ── Main entry point ─────────────────────────────────────────────────
@@ -102,8 +87,8 @@ export class UserTaskOrchestrator {
     logger.info({
       taskId, userId,
       config: {
-        OLLAMA_BASE_URL,
-        OLLAMA_MODEL,
+        LLM_PROVIDER,
+        LLM_MODEL: this.llmTool.getModel(),
         WORKSPACE_ROOT,
         SD3_SCRIPT_PATH: SD3_SCRIPT_PATH || '(not set)',
         SD3_MODEL_PATH: SD3_MODEL_PATH ? '***set***' : '(not set)',
@@ -447,7 +432,8 @@ Output JSON only:
     const relativePath = `outputs/${filePath}`;
 
     switch (operation) {
-      case 'write': {
+      case 'write':
+      case 'create': {
         await fs.mkdir(path.dirname(fullPath), { recursive: true });
         await fs.writeFile(fullPath, content || '');
         const stats = await fs.stat(fullPath);
@@ -463,6 +449,35 @@ Output JSON only:
           return { content: data, path: fullPath };
         } catch {
           return { error: 'File not found', path: fullPath };
+        }
+      }
+      case 'check':
+      case 'exists': {
+        const exists = existsSync(fullPath);
+        return { exists, path: fullPath };
+      }
+      case 'delete':
+      case 'remove': {
+        try {
+          await fs.unlink(fullPath);
+          return { deleted: true, path: fullPath };
+        } catch {
+          return { deleted: false, error: 'File not found', path: fullPath };
+        }
+      }
+      case 'append': {
+        await fs.mkdir(path.dirname(fullPath), { recursive: true });
+        await fs.appendFile(fullPath, content || '');
+        const stats = await fs.stat(fullPath);
+        return { appended: fullPath, size: stats.size };
+      }
+      case 'list': {
+        try {
+          const dirPath = path.join(workspacePath, 'outputs', filePath || '');
+          const files = await fs.readdir(dirPath);
+          return { files, path: dirPath };
+        } catch {
+          return { error: 'Directory not found', path: fullPath };
         }
       }
       default:

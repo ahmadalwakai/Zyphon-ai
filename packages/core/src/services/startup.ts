@@ -6,6 +6,7 @@
 import { prisma } from '@zyphon/db';
 import { STARTUP_CHECKS, StartupCheckResult, ERROR_CODES } from '@zyphon/shared';
 import { ImageTool } from '../tools/image.js';
+import { LLMTool } from '../tools/llm.js';
 import { checkPlaywrightBrowsers } from '../tools/browser.js';
 import * as pinoModule from 'pino';
 import IORedis from 'ioredis';
@@ -23,10 +24,14 @@ export interface StartupCheckReport {
 export class StartupService {
   private redisUrl: string;
   private ollamaUrl: string;
+  private llmProvider: 'groq' | 'ollama';
+  private groqApiKey: string;
 
   constructor() {
     this.redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
     this.ollamaUrl = process.env['OLLAMA_URL'] || 'http://localhost:11434';
+    this.llmProvider = (process.env['LLM_PROVIDER'] as 'groq' | 'ollama') || 'groq';
+    this.groqApiKey = process.env['GROQ_API_KEY'] || '';
   }
 
   /**
@@ -37,7 +42,7 @@ export class StartupService {
     const criticalFailures: string[] = [];
     const warnings: string[] = [];
 
-    logger.info('Running startup checks...');
+    logger.info({ llmProvider: this.llmProvider }, 'Running startup checks...');
 
     // Check Database
     const dbCheck = await this.checkDatabase();
@@ -53,11 +58,11 @@ export class StartupService {
       criticalFailures.push(redisCheck.message);
     }
 
-    // Check Ollama
-    const ollamaCheck = await this.checkOllama();
-    results.push(ollamaCheck);
-    if (!ollamaCheck.passed && STARTUP_CHECKS.ollama.critical) {
-      criticalFailures.push(ollamaCheck.message);
+    // Check LLM Provider (Groq or Ollama)
+    const llmCheck = await this.checkLLM();
+    results.push(llmCheck);
+    if (!llmCheck.passed && STARTUP_CHECKS.ollama.critical) {
+      criticalFailures.push(llmCheck.message);
     }
 
     // Check SD3 Model
@@ -196,7 +201,72 @@ export class StartupService {
   }
 
   /**
-   * Check Ollama LLM availability
+   * Check LLM provider (Groq or Ollama)
+   */
+  private async checkLLM(): Promise<StartupCheckResult> {
+    if (this.llmProvider === 'groq') {
+      return this.checkGroq();
+    }
+    return this.checkOllama();
+  }
+
+  /**
+   * Check Groq API availability
+   */
+  private async checkGroq(): Promise<StartupCheckResult> {
+    const checkName = 'LLM (Groq)';
+    
+    if (!this.groqApiKey) {
+      return {
+        name: checkName,
+        passed: false,
+        message: 'GROQ_API_KEY not set',
+        critical: STARTUP_CHECKS.ollama.critical,
+      };
+    }
+
+    try {
+      // Verify the API key by making a models list request
+      const response = await fetch('https://api.groq.com/openai/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.groqApiKey}`,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        return {
+          name: checkName,
+          passed: false,
+          message: `Groq API error: HTTP ${response.status}`,
+          critical: STARTUP_CHECKS.ollama.critical,
+        };
+      }
+
+      const data = await response.json() as { data?: Array<{ id: string }> };
+      const modelCount = data.data?.length || 0;
+      const groqModel = process.env['GROQ_MODEL'] || 'llama-3.3-70b-versatile';
+
+      return {
+        name: checkName,
+        passed: true,
+        message: `Groq OK (${modelCount} models, using ${groqModel})`,
+        critical: STARTUP_CHECKS.ollama.critical,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        name: checkName,
+        passed: false,
+        message: `Groq connection failed: ${msg}`,
+        critical: STARTUP_CHECKS.ollama.critical,
+      };
+    }
+  }
+
+  /**
+   * Check Ollama LLM availability (legacy)
    */
   private async checkOllama(): Promise<StartupCheckResult> {
     try {

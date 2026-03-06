@@ -9,7 +9,13 @@ export interface EnvConfig {
   // Required
   DATABASE_URL: string;
   
-  // Optional with defaults
+  // LLM Provider config
+  LLM_PROVIDER: 'groq' | 'ollama';
+  GROQ_API_KEY?: string;
+  GROQ_MODEL: string;
+  GROQ_BASE_URL: string;
+  
+  // Optional with defaults (legacy Ollama)
   REDIS_URL: string;
   OLLAMA_BASE_URL: string;
   OLLAMA_MODEL: string;
@@ -21,6 +27,7 @@ export interface EnvConfig {
   SD3_SCRIPT_PATH?: string;
   SD3_MODEL_PATH?: string;
   CRON_SECRET?: string;
+  FEATURE_B2B?: boolean;
   
   // Computed
   isVercel: boolean;
@@ -42,7 +49,7 @@ export class EnvValidationError extends Error {
  * Validate and return typed environment configuration.
  * Call at application startup to fail fast on missing config.
  */
-export function validateEnv(options: { requireRedis?: boolean; requireOllama?: boolean } = {}): EnvConfig {
+export function validateEnv(options: { requireRedis?: boolean; requireOllama?: boolean; requireLLM?: boolean } = {}): EnvConfig {
   const missing: string[] = [];
   
   // Always required
@@ -55,8 +62,15 @@ export function validateEnv(options: { requireRedis?: boolean; requireOllama?: b
     missing.push('REDIS_URL');
   }
   
-  if (options.requireOllama && !process.env['OLLAMA_BASE_URL'] && !process.env['OLLAMA_URL']) {
-    missing.push('OLLAMA_BASE_URL or OLLAMA_URL');
+  // LLM provider logic
+  const llmProvider = (process.env['LLM_PROVIDER'] || 'groq') as 'groq' | 'ollama';
+  
+  if (options.requireLLM || options.requireOllama) {
+    if (llmProvider === 'groq' && !process.env['GROQ_API_KEY']) {
+      missing.push('GROQ_API_KEY');
+    } else if (llmProvider === 'ollama' && !process.env['OLLAMA_BASE_URL'] && !process.env['OLLAMA_URL']) {
+      missing.push('OLLAMA_BASE_URL or OLLAMA_URL');
+    }
   }
   
   if (missing.length > 0) {
@@ -67,6 +81,10 @@ export function validateEnv(options: { requireRedis?: boolean; requireOllama?: b
   
   return {
     DATABASE_URL: process.env['DATABASE_URL']!,
+    LLM_PROVIDER: llmProvider,
+    GROQ_API_KEY: process.env['GROQ_API_KEY'],
+    GROQ_MODEL: process.env['GROQ_MODEL'] || 'llama-3.3-70b-versatile',
+    GROQ_BASE_URL: process.env['GROQ_BASE_URL'] || 'https://api.groq.com/openai/v1',
     REDIS_URL: process.env['REDIS_URL'] || 'redis://localhost:6379',
     OLLAMA_BASE_URL: process.env['OLLAMA_BASE_URL'] || process.env['OLLAMA_URL'] || 'http://localhost:11434',
     OLLAMA_MODEL: process.env['OLLAMA_MODEL'] || 'deepseek-coder-v2:16b',
@@ -76,6 +94,7 @@ export function validateEnv(options: { requireRedis?: boolean; requireOllama?: b
     SD3_SCRIPT_PATH: process.env['SD3_SCRIPT_PATH'],
     SD3_MODEL_PATH: process.env['SD3_MODEL_PATH'],
     CRON_SECRET: process.env['CRON_SECRET'],
+    FEATURE_B2B: process.env['FEATURE_B2B'] === 'true',
     isVercel,
     isProduction: process.env['NODE_ENV'] === 'production',
     isDevelopment: process.env['NODE_ENV'] === 'development',
@@ -94,16 +113,22 @@ export function isServerless(): boolean {
  * Get a safe summary of env config (no secrets) for debugging.
  */
 export function getEnvSummary(): Record<string, string> {
+  const llmProvider = process.env['LLM_PROVIDER'] || 'groq';
   return {
     NODE_ENV: process.env['NODE_ENV'] || 'undefined',
     VERCEL: process.env['VERCEL'] ? 'true' : 'false',
     DATABASE_URL: process.env['DATABASE_URL'] ? '***configured***' : 'MISSING',
     REDIS_URL: process.env['REDIS_URL'] ? '***configured***' : 'using default',
+    LLM_PROVIDER: llmProvider,
+    GROQ_API_KEY: process.env['GROQ_API_KEY'] ? '***configured***' : 'not set',
+    GROQ_MODEL: process.env['GROQ_MODEL'] || 'default (llama-3.3-70b-versatile)',
+    GROQ_BASE_URL: process.env['GROQ_BASE_URL'] || 'https://api.groq.com/openai/v1',
     OLLAMA_BASE_URL: (process.env['OLLAMA_BASE_URL'] || process.env['OLLAMA_URL']) ? '***configured***' : 'using default',
     OLLAMA_MODEL: process.env['OLLAMA_MODEL'] || 'default (deepseek-coder-v2:16b)',
     WORKSPACE_ROOT: process.env['WORKSPACE_ROOT'] || (process.env['VERCEL'] ? '/tmp/workspaces' : './workspaces'),
     SD3_SCRIPT_PATH: process.env['SD3_SCRIPT_PATH'] ? '***configured***' : 'not set',
     SD3_MODEL_PATH: process.env['SD3_MODEL_PATH'] ? '***configured***' : 'not set',
     CRON_SECRET: process.env['CRON_SECRET'] ? '***configured***' : 'not set',
+    FEATURE_B2B: process.env['FEATURE_B2B'] || 'false',
   };
 }

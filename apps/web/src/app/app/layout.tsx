@@ -15,6 +15,7 @@ import {
   CreditCard,
   ChevronDown,
   Plus,
+  Bot,
 } from 'lucide-react';
 
 interface User {
@@ -39,6 +40,7 @@ export const useApp = () => useContext(AppContext);
 
 const navItems = [
   { href: '/app', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/app/agent', icon: Bot, label: 'Agent' },
   { href: '/app/workspaces', icon: FolderKanban, label: 'Workspaces' },
   { href: '/app/tasks', icon: Zap, label: 'Tasks' },
   { href: '/app/billing', icon: CreditCard, label: 'Billing' },
