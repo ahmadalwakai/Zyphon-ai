@@ -8,14 +8,14 @@
  *   node scripts/test-groq.mjs
  * 
  * Required env vars:
- *   GROQ_API_KEY - Your Groq API key
+ *   GROK - Your Groq API key
  * 
  * Optional env vars:
  *   GROQ_MODEL - Model to use (default: llama-3.3-70b-versatile)
  *   GROQ_BASE_URL - API base URL (default: https://api.groq.com/openai/v1)
  */
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_KEY = process.env.GROK;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 const GROQ_BASE_URL = process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1';
 
@@ -29,8 +29,8 @@ async function testGroq() {
   console.log();
 
   if (!GROQ_API_KEY) {
-    console.error('❌ ERROR: GROQ_API_KEY environment variable is not set');
-    console.error('   Set it with: $env:GROQ_API_KEY = "gsk_your_key_here"');
+    console.error('❌ ERROR: GROK environment variable is not set');
+    console.error('   Set it with: $env:GROK = "gsk_your_key_here"');
     process.exit(1);
   }
 

@@ -31,7 +31,7 @@ export class StartupService {
     this.redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
     this.ollamaUrl = process.env['OLLAMA_URL'] || 'http://localhost:11434';
     this.llmProvider = (process.env['LLM_PROVIDER'] as 'groq' | 'ollama') || 'groq';
-    this.groqApiKey = process.env['GROQ_API_KEY'] || '';
+    this.groqApiKey = process.env['GROK'] || '';
   }
 
   /**
@@ -220,7 +220,7 @@ export class StartupService {
       return {
         name: checkName,
         passed: false,
-        message: 'GROQ_API_KEY not set',
+        message: 'GROK not set',
         critical: STARTUP_CHECKS.ollama.critical,
       };
     }

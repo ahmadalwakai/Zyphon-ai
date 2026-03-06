@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     // Launch pipeline in background (non-blocking)
     const pipeline = new AgentPipeline(
-      process.env['GROQ_API_KEY'],
+      process.env['GROK'],
       process.env['GROQ_MODEL'] ?? 'llama-3.3-70b-versatile'
     );
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       goal,
       maxRetries: 3,
       timeoutMs: 55_000,
-      groqApiKey: process.env['GROQ_API_KEY'],
+      groqApiKey: process.env['GROK'],
     }).catch((error: unknown) => {
       const msg = error instanceof Error ? error.message : 'Unknown pipeline error';
       TaskStore.fail(taskId, msg);

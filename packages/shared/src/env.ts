@@ -11,7 +11,7 @@ export interface EnvConfig {
   
   // LLM Provider config
   LLM_PROVIDER: 'groq' | 'ollama';
-  GROQ_API_KEY?: string;
+  GROK?: string;
   GROQ_MODEL: string;
   GROQ_BASE_URL: string;
   
@@ -66,8 +66,8 @@ export function validateEnv(options: { requireRedis?: boolean; requireOllama?: b
   const llmProvider = (process.env['LLM_PROVIDER'] || 'groq') as 'groq' | 'ollama';
   
   if (options.requireLLM || options.requireOllama) {
-    if (llmProvider === 'groq' && !process.env['GROQ_API_KEY']) {
-      missing.push('GROQ_API_KEY');
+    if (llmProvider === 'groq' && !process.env['GROK']) {
+      missing.push('GROK');
     } else if (llmProvider === 'ollama' && !process.env['OLLAMA_BASE_URL'] && !process.env['OLLAMA_URL']) {
       missing.push('OLLAMA_BASE_URL or OLLAMA_URL');
     }
@@ -82,7 +82,7 @@ export function validateEnv(options: { requireRedis?: boolean; requireOllama?: b
   return {
     DATABASE_URL: process.env['DATABASE_URL']!,
     LLM_PROVIDER: llmProvider,
-    GROQ_API_KEY: process.env['GROQ_API_KEY'],
+    GROK: process.env['GROK'],
     GROQ_MODEL: process.env['GROQ_MODEL'] || 'llama-3.3-70b-versatile',
     GROQ_BASE_URL: process.env['GROQ_BASE_URL'] || 'https://api.groq.com/openai/v1',
     REDIS_URL: process.env['REDIS_URL'] || 'redis://localhost:6379',
@@ -120,7 +120,7 @@ export function getEnvSummary(): Record<string, string> {
     DATABASE_URL: process.env['DATABASE_URL'] ? '***configured***' : 'MISSING',
     REDIS_URL: process.env['REDIS_URL'] ? '***configured***' : 'using default',
     LLM_PROVIDER: llmProvider,
-    GROQ_API_KEY: process.env['GROQ_API_KEY'] ? '***configured***' : 'not set',
+    GROK: process.env['GROK'] ? '***configured***' : 'not set',
     GROQ_MODEL: process.env['GROQ_MODEL'] || 'default (llama-3.3-70b-versatile)',
     GROQ_BASE_URL: process.env['GROQ_BASE_URL'] || 'https://api.groq.com/openai/v1',
     OLLAMA_BASE_URL: (process.env['OLLAMA_BASE_URL'] || process.env['OLLAMA_URL']) ? '***configured***' : 'using default',

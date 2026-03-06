@@ -35,12 +35,12 @@ export class GroqClient {
     baseUrl?: string;
     model?: string;
   }) {
-    this.apiKey = options?.apiKey ?? process.env['GROQ_API_KEY'] ?? '';
+    this.apiKey = options?.apiKey ?? process.env['GROK'] ?? '';
     this.baseUrl = options?.baseUrl ?? process.env['GROQ_BASE_URL'] ?? 'https://api.groq.com/openai/v1';
     this.model = options?.model ?? process.env['GROQ_MODEL'] ?? 'llama-3.3-70b-versatile';
 
     if (!this.apiKey) {
-      throw new Error('GROQ_API_KEY is required');
+      throw new Error('GROK is required');
     }
   }
 

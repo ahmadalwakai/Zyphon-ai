@@ -104,7 +104,7 @@ export class LLMTool {
     }
   ) {
     this.provider = options?.provider || (process.env['LLM_PROVIDER'] as LLMProvider) || 'groq';
-    this.groqApiKey = options?.groqApiKey || process.env['GROQ_API_KEY'] || '';
+    this.groqApiKey = options?.groqApiKey || process.env['GROK'] || '';
     this.groqBaseUrl = options?.groqBaseUrl || process.env['GROQ_BASE_URL'] || 'https://api.groq.com/openai/v1';
     this.groqModel = options?.groqModel || process.env['GROQ_MODEL'] || 'llama-3.3-70b-versatile';
     this.ollamaBaseUrl = options?.ollamaBaseUrl || process.env['OLLAMA_BASE_URL'] || process.env['OLLAMA_URL'] || 'http://localhost:11434';
@@ -182,7 +182,7 @@ export class LLMTool {
 
   private async generateWithGroq(input: LLMToolInput, startTime: number): Promise<ToolResult> {
     if (!this.groqApiKey) {
-      throw new Error('GROQ_API_KEY is not set');
+      throw new Error('GROK is not set');
     }
 
     const systemPrompt = input.systemPrompt || this.getDefaultSystemPrompt(input.jsonMode);

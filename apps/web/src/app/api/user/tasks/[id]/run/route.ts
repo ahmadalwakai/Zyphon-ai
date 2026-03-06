@@ -100,7 +100,7 @@ export async function POST(
     TaskStore.create(taskId, goal);
 
     const pipeline = new AgentPipeline(
-      process.env['GROQ_API_KEY'],
+      process.env['GROK'],
       process.env['GROQ_MODEL'] ?? 'llama-3.3-70b-versatile'
     );
 
@@ -110,7 +110,7 @@ export async function POST(
       goal,
       maxRetries: 3,
       timeoutMs: 55_000,
-      groqApiKey: process.env['GROQ_API_KEY'],
+      groqApiKey: process.env['GROK'],
     }).then(async (result) => {
       // Sync final state back to DB
       await prisma.userTask.update({

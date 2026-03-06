@@ -10,7 +10,7 @@
         "NODE_ENV",
         "REDIS_URL",
         "LLM_PROVIDER",
-        "GROQ_API_KEY",
+        "GROK",
         "GROQ_MODEL",
         "GROQ_BASE_URL",
         "OLLAMA_URL",
