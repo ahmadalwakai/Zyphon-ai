@@ -12,10 +12,9 @@
   },
   "dependencies": {
     "@zyphon/shared": "workspace:*",
-    "@zyphon/executor": "workspace:*"
-  },
-  "devDependencies": {
+    "@zyphon/executor": "workspace:*",
     "@types/node": "^20.11.0",
     "typescript": "^5.3.3"
-  }
+  },
+  "devDependencies": {}
 }
