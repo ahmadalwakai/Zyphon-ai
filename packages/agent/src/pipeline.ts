@@ -9,7 +9,8 @@ import { CoderAgent } from './agents/coder.js';
 import { ExecutorAgent } from './agents/executor-agent.js';
 import { CriticAgent } from './agents/critic.js';
 import { PackagerAgent } from './agents/packager-agent.js';
-import { GroqClient, type GroqStreamCallback } from './llm/groq-client.js';
+import { LLMRouter } from './llm/router.js';
+import type { GroqStreamCallback } from './llm/groq-client.js';
 import { TaskStore, type TaskLog } from './store.js';
 
 export interface PipelineOptions {
@@ -38,12 +39,12 @@ export class AgentPipeline {
   private executor: ExecutorAgent;
   private critic: CriticAgent;
   private packager: PackagerAgent;
-  private llm: GroqClient;
+  private llm: LLMRouter;
 
   constructor(groqApiKey?: string, groqModel?: string) {
-    this.llm = new GroqClient({
-      apiKey: groqApiKey,
-      model: groqModel ?? 'llama-3.3-70b-versatile',
+    this.llm = new LLMRouter({
+      groqApiKey: groqApiKey,
+      groqModel: groqModel ?? 'llama-3.3-70b-versatile',
     });
 
     this.planner = new PlannerAgent(this.llm);

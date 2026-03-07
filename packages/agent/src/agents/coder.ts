@@ -4,7 +4,8 @@
  */
 
 import type { Sandbox } from '@zyphon/executor';
-import type { GroqClient, GroqStreamCallback } from '../llm/groq-client.js';
+import type { LLMRouter } from '../llm/router.js';
+import type { GroqStreamCallback } from '../llm/groq-client.js';
 import type { PlanStep } from './planner.js';
 
 const CODER_SYSTEM_PROMPT = `You are an expert software engineer. Generate production-quality code for the given task.
@@ -19,9 +20,9 @@ RULES:
 7. Make sure imports are correct and consistent with the project structure.`;
 
 export class CoderAgent {
-  private llm: GroqClient;
+  private llm: LLMRouter;
 
-  constructor(llm: GroqClient) {
+  constructor(llm: LLMRouter) {
     this.llm = llm;
   }
 

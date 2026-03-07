@@ -4,7 +4,8 @@
  */
 
 import type { Sandbox } from '@zyphon/executor';
-import type { GroqClient, GroqStreamCallback } from '../llm/groq-client.js';
+import type { LLMRouter } from '../llm/router.js';
+import type { GroqStreamCallback } from '../llm/groq-client.js';
 import { CoderAgent } from './coder.js';
 
 const CRITIC_SYSTEM_PROMPT = `You are an expert code reviewer and debugger. Analyze the error output and provide a concise fix.
@@ -34,10 +35,10 @@ export interface CriticDiagnosis {
 }
 
 export class CriticAgent {
-  private llm: GroqClient;
+  private llm: LLMRouter;
   private coder: CoderAgent;
 
-  constructor(llm: GroqClient) {
+  constructor(llm: LLMRouter) {
     this.llm = llm;
     this.coder = new CoderAgent(llm);
   }

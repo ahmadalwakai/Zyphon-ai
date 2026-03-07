@@ -3,7 +3,8 @@
  * Returns a JSON array of steps for the other agents to execute.
  */
 
-import type { GroqClient, GroqStreamCallback } from '../llm/groq-client.js';
+import type { LLMRouter } from '../llm/router.js';
+import type { GroqStreamCallback } from '../llm/groq-client.js';
 
 export interface PlanStep {
   step: number;
@@ -44,9 +45,9 @@ Example response:
 ]`;
 
 export class PlannerAgent {
-  private llm: GroqClient;
+  private llm: LLMRouter;
 
-  constructor(llm: GroqClient) {
+  constructor(llm: LLMRouter) {
     this.llm = llm;
   }
 

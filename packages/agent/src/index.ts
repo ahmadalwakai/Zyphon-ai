@@ -11,5 +11,6 @@ export { CriticAgent } from './agents/critic.js';
 export { PackagerAgent } from './agents/packager-agent.js';
 export { AgentPipeline, type PipelineOptions, type PipelineResult } from './pipeline.js';
 export { GroqClient, type GroqStreamCallback } from './llm/groq-client.js';
+export { LLMRouter, type RouterConfig, type HealthStatus } from './llm/router.js';
 export { TaskStore, type TaskState, type TaskLog } from './store.js';
 export type { AgentContext } from './types.js';
